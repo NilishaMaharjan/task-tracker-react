@@ -1,0 +1,28 @@
+{
+  "tasks": [
+    {
+      "id": "1",
+      "title": "Learn React",
+      "completed": true
+    },
+    {
+      "id": "2",
+      "title": "Wake up at 5 am to learn scoooter",
+      "completed": false
+    },
+    {
+      "id": "3",
+      "title": "Prepare meal",
+      "completed": true
+    },
+    {
+      "title": "Make similar app using next.js",
+      "completed": false,
+      "id": "XcUe-sljYqw"
+    },
+    {
+      "title": "Change the color",
+      "completed": false,
+      "id": "IYxMW8clq4A"
+    }
+  ]}
