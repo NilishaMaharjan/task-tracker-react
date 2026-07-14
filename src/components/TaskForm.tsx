@@ -1,15 +1,23 @@
 import { useState } from "react";
+import type { Priority } from "../types/task";
 
 type TaskFormProps = {
-  onAdd: (title: string) => void;
-}
+  onAdd: (
+    title: string,
+    priority: Priority
+  ) => void;
+};
 
 export function TaskForm({ onAdd }: TaskFormProps) {
   const [input, setInput] = useState("");
+  const [priority, setPriority] = useState<
+  Priority
+>("medium");
 
   const handleAdd = () => {
-    onAdd(input);
+    onAdd(input, priority);
     setInput("");
+    setPriority("medium");
   };
 
   return (
@@ -24,6 +32,18 @@ export function TaskForm({ onAdd }: TaskFormProps) {
         placeholder="Enter the task."
         className="task-input"
       />
+
+      <select
+      value={priority}
+      onChange={(e) =>
+        setPriority(e.target.value as Priority)
+      }
+    >
+      <option value="low">Low</option>
+      <option value="medium">Medium</option>
+      <option value="high">High</option>
+    </select>
+    
       <button onClick={handleAdd} className="add-btn">
         + Add Task
       </button>

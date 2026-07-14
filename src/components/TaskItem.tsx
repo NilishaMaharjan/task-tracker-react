@@ -4,10 +4,10 @@ import type { Task } from "../types/task";
 type TaskItemProps = {
   task: Task;
   isEditing: boolean;
-  onDelete: (id: number) => void;
-  onToggle: (id: number) => void;
-  onStartEdit: (id: number) => void;
-  onSaveEdit: (id: number, newTitle: string) => void;
+  onDelete: (id: string) => void;
+  onToggle: (id: string) => void;
+  onStartEdit: (id: string) => void;
+  onSaveEdit: (id: string, newTitle: string) => void;
   onCancelEdit: () => void;
 }
 
@@ -30,14 +30,14 @@ export function TaskItem({
           value={editValue}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditValue(e.target.value)}
           onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === "Enter") onSaveEdit(task.id, editValue);
+            if (e.key === "Enter") onSaveEdit(task._id, editValue);
             if (e.key === "Escape") onCancelEdit();
           }}
           className="edit-input"
           autoFocus
         />
         <div className="edit-actions">
-          <button onClick={() => onSaveEdit(task.id, editValue)} className="save-btn">
+          <button onClick={() => onSaveEdit(task._id, editValue)} className="save-btn">
             Save
           </button>
           <button onClick={onCancelEdit} className="cancel-btn">
@@ -54,7 +54,7 @@ export function TaskItem({
         <input
           type="checkbox"
           checked={task.completed}
-          onChange={() => onToggle(task.id)}
+          onChange={() => onToggle(task._id)}
           className="checkbox-input"
         />
         <span className="checkbox-custom">
@@ -66,13 +66,19 @@ export function TaskItem({
         </span>
       </label>
 
-      <span className={`task-title ${task.completed ? "task-done" : ""}`}>
-        {task.title}
-      </span>
+      <div className="task-content">
+  <span className={`task-title ${task.completed ? "task-done" : ""}`}>
+    {task.title}
+  </span>
+
+  <span className={`priority-badge priority-${task.priority}`}>
+    {task.priority}
+  </span>
+</div>
 
       <div className="task-actions">
         <button
-          onClick={() => onStartEdit(task.id)}
+          onClick={() => onStartEdit(task._id)}
           className="icon-btn edit-icon-btn"
           title="Edit task"
         >
@@ -83,7 +89,7 @@ export function TaskItem({
         </button>
 
         <button
-          onClick={() => onDelete(task.id)}
+          onClick={() => onDelete(task._id)}
           className="icon-btn delete-icon-btn"
           title="Delete task"
         >

@@ -10,7 +10,7 @@ export function ErrorState({ message }: ErrorStateProps) {
           <p className="error-title">Could not load tasks</p>
           <p className="error-message">{message}</p>
           <p className="error-hint">
-            Make sure json-server is running:{" "}
+            Make sure backend  is running:{" "}
             <code>npm run server</code>
           </p>
         </div>

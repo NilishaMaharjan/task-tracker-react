@@ -88,7 +88,7 @@ body {
 }
 
 .add-btn:hover {
-  background: #4f46e5;
+  background: #54952b;
 }
 
 .add-btn:active {
@@ -182,6 +182,79 @@ body {
   border-color: #54952b;
 }
 
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.dashboard-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 24px 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  transition: 0.3s ease;
+}
+
+.dashboard-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+}
+
+.dashboard-number {
+  font-size: 32px;
+  font-weight: 700;
+  color: #54952b;
+}
+
+.dashboard-number.completed {
+  color: #16a34a;
+}
+
+.dashboard-number.pending {
+  color: #ea580c;
+}
+
+.dashboard-label {
+  margin-top: 8px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.dashboard-progress-section {
+  margin-top: 30px;
+}
+
+.dashboard-progress-text {
+  margin-bottom: 10px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.dashboard-action {
+  margin-top: 30px;
+}
+
+.dashboard-btn {
+  display: block;
+  text-align: center;
+  background: #54952b;
+  color: white;
+  text-decoration: none;
+  padding: 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.dashboard-btn:hover {
+  background: #54952b;
+  transform: translateY(-2px);
+}
+
 /* Task Title */
 .task-title {
   flex: 1;
@@ -269,7 +342,7 @@ body {
 }
 
 .save-btn:hover {
-  background: #4f46e5;
+  background: #54952b;
 }
 
 .cancel-btn {
@@ -290,7 +363,7 @@ body {
 .empty-state {
   padding: 40px 28px;
   text-align: center;
-  color: #c4c9d4;
+  color: #01050e;
   font-size: 14px;
 }
 

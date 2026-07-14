@@ -1,19 +1,26 @@
 import { useState, useEffect } from "react"
-import type { Task, FetchState } from "../types/task"
+import axios from "axios"
+import api from "../api/axios"
+import type { Task, FetchState, Priority } from "../types/task"
 
-//The URL of fake backend
-const API_URL = "http://localhost:3001/tasks"
+const TASKS_URL = "/tasks"
+
+function getErrorMessage(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err)) {
+    return err.response?.data?.message ?? err.message ?? fallback
+  }
+  return err instanceof Error ? err.message : fallback
+}
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([])
 
   const [fetchState, setFetchState] = useState<FetchState>({
-    loading: true, 
+    loading: true,
     error: null
   })
-
-  // editingId — tracks which task ID is currently being modified by the user in the UI
-  const [editingId, setEditingId] = useState<number | null>(null)
+  // CHANGED: editingId tracks a MongoDB string ID now
+  const [editingId, setEditingId] = useState<string | null>(null)
 
 
   useEffect(() => {
@@ -21,135 +28,121 @@ export function useTasks() {
       try {
         setFetchState({ loading: true, error: null })
 
-        const response = await fetch(API_URL)
+        const { data } = await api.get<Task[]>(TASKS_URL)
 
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`)
-        }
-
-        const data: Task[] = await response.json()
-
-        //Update state to populate data and turn off the loading screen
         setTasks(data)
         setFetchState({ loading: false, error: null })
 
       } catch (err) {
-        // Catches true network failures or manual exceptions thrown above
-        const message = err instanceof Error ? err.message : "Unknown error"
+        const message = getErrorMessage(err, "Unknown error")
         setFetchState({ loading: false, error: message })
       }
     }
 
-    // Fire the async operation immediately on component mount
     loadTasks()
-  }, []) 
+  }, [])
 
 
-  //CREATE: ADD TASK 
-  const addTask = async (title: string) => {
-    if (title.trim() === "") return
-
-    const newTask = {
-      title: title.trim(),
-      completed: false
-      // Note: No id is sent. json-server automatically increments and generates it on the server-side.
-    }
+  // CREATE: ADD TASK
+  const addTask = async (
+    title: string,
+    priority: Priority
+  ) => {
+    if (!title.trim()) return
 
     try {
-      const response = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json" // Informs the server it needs to parse incoming JSON payload
-        },
-        body: JSON.stringify(newTask) // Converts the JS object to a string format for transmission
+      const { data: created } = await api.post<Task>(TASKS_URL, {
+        title: title.trim(),
+        priority,
       })
 
-      if (!response.ok) throw new Error(`Failed to add: ${response.status}`)
-
-      // The server returns the newly saved task complete with its fresh ID
-      const created: Task = await response.json()
-
-      // Optimistic/Local state update: cleanly appends the fresh record using the functional state pattern
       setTasks(prev => [...prev, created])
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to add task"
+      const message = getErrorMessage(err, "Failed to add task")
       setFetchState(prev => ({ ...prev, error: message }))
     }
   }
 
 
-  //DELETE: REMOVE TASK (DELETE)
-  const deleteTask = async (id: number) => {
+  // DELETE: REMOVE TASK (CHANGED: id type is now string, filter tracks _id)
+  const deleteTask = async (id: string) => {
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "DELETE"
-      })
+      await api.delete(`${TASKS_URL}/${id}`)
 
-      if (!response.ok) throw new Error(`Failed to delete: ${response.status}`)
-
-      // Filter out the dropped item from local memory to avoid needing a secondary full-page refetch
-      setTasks(prev => prev.filter(task => task.id !== id))
+      // CHANGED: Match against task._id
+      setTasks(prev => prev.filter(task => task._id !== id))
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to delete task"
+      const message = getErrorMessage(err, "Failed to delete task")
       setFetchState(prev => ({ ...prev, error: message }))
     }
   }
 
 
-  //UPDATE: TOGGLE COMPLETION STATE (PUT)
-  const toggleComplete = async (id: number) => {
-    const task = tasks.find(t => t.id === id)
+  // UPDATE: TOGGLE COMPLETION STATE (CHANGED: id type is string, maps via _id)
+  const updateTask = async (
+    id: string,
+    updates: Partial<Task>
+  ): Promise<Task | undefined> => {
+    const task = tasks.find(t => t._id === id)
+
     if (!task) return
 
     try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...task, completed: !task.completed })
-      })
+      const { data: updated } = await api.put<Task>(
+        `${TASKS_URL}/${id}`,
+        {
+          title: updates.title ?? task.title,
+          completed: updates.completed ?? task.completed,
+          priority: updates.priority ?? task.priority,
+        }
+      )
 
-      if (!response.ok) throw new Error(`Failed to update: ${response.status}`)
+      setTasks(prev =>
+        prev.map(t =>
+          t._id === id ? updated : t
+        )
+      )
 
-      const updated: Task = await response.json()
-
-      // Map through local state and swap out the stale object with the new one confirmed by the server
-      setTasks(prev => prev.map(t => t.id === id ? updated : t))
-
+      return updated
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update task"
-      setFetchState(prev => ({ ...prev, error: message }))
+      const message = getErrorMessage(
+        err,
+        "Failed to update task"
+      )
+
+      setFetchState(prev => ({
+        ...prev,
+        error: message,
+      }))
+
+      return undefined
     }
   }
 
- //Update 
-  const startEdit = (id: number) => setEditingId(id)
+  const toggleComplete = async (id: string) => {
+    const task = tasks.find(t => t._id === id)
+
+    if (!task) return
+
+    await updateTask(id, {
+      completed: !task.completed,
+    })
+  }
+
+  // Update Edit States (CHANGED: id type is string)
+  const startEdit = (id: string) => setEditingId(id)
   const cancelEdit = () => setEditingId(null)
 
-  const saveEdit = async (id: number, newTitle: string) => {
-    if (newTitle.trim() === "") return
+  const saveEdit = async (id: string, newTitle: string) => {
+    if (!newTitle.trim()) return
 
-    const task = tasks.find(t => t.id === id)
-    if (!task) return
+    await updateTask(id, {
+      title: newTitle.trim(),
+    })
 
-    try {
-      const response = await fetch(`${API_URL}/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...task, title: newTitle.trim() })
-      })
-
-      if (!response.ok) throw new Error(`Failed to save: ${response.status}`)
-
-      const updated: Task = await response.json()
-      setTasks(prev => prev.map(t => t.id === id ? updated : t))
-      setEditingId(null) 
-
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to save edit"
-      setFetchState(prev => ({ ...prev, error: message }))
-    }
+    setEditingId(null)
   }
 
   return {

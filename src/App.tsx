@@ -1,109 +1,111 @@
-import { useState, useMemo } from "react"
-import { useTaskContext } from "./context/TaskContext"
-import { TaskForm } from "./components/TaskForm"
-import { TaskItem } from "./components/TaskItem"
-import { LoadingState } from "./components/LoadingState"
-import { ErrorState } from "./components/ErrorState"
-import "./App.css"
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Link,
+} from "react-router-dom"
 
-type Filter = "all" | "active" | "completed"
+import Dashboard from "./pages/Dashboard"
+import Tasks from "./pages/Tasks"
+import About from "./pages/About"
+import Settings from "./pages/Settings"
+import Login from "./pages/Login"
+import Profile from "./pages/Profile"
+import ProtectedRoute from "./components/ProtectedRoutes"
+import Register from "./pages/Register"
+
+// Separate Header sub-component so we can use the useNavigate() hook inside it safely
+function MainNavigation() {
+  // Read local storage to see if a user state exists
+  const userString = localStorage.getItem("user")
+  const user = userString ? JSON.parse(userString) : null
+
+  const handleLogout = async () => {
+    try {
+      // 1. Tell backend to wipe out the HttpOnly cookie container
+      await fetch("http://localhost:5001/api/auth/logout", {
+        method: "POST",
+        credentials: "include" // Necessary to pass the cookie along to clear it
+      })
+    } catch (err) {
+      console.error("Backend logout cleanup failed", err)
+    } finally {
+      // 2. Clear frontend state completely regardless of network speed
+      localStorage.removeItem("user")
+      localStorage.removeItem("accessToken")
+
+      // hard refresh 
+      window.location.href = "/login"
+    }
+  }
+
+  return (
+    <header
+      style={{
+        padding: "20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        borderBottom: "1px solid #e5e7eb",
+        backgroundColor: "white",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+      }}
+    >
+      <h2 style={{ margin: 0 }}>Task Tracker</h2>
+
+      <nav style={{ display: "flex", gap: "25px", alignItems: "center" }}>
+        <Link to="/dashboard">Dashboard</Link>
+        <Link to="/tasks">Tasks</Link>
+        <Link to="/about">About</Link>
+        <Link to="/settings">Settings</Link>
+        <Link to="/profile">Profile</Link>
+
+        {/*mart Navigation Check */}
+
+        {user ? (
+          <a
+            href="#logout"
+            onClick={(e) => {
+              e.preventDefault() // Prevents the browser from reloading or jumping the page
+              handleLogout()
+            }}
+            style={{
+              color: "#000000",
+              textDecoration: "none",
+              cursor: "pointer"
+            }}
+          >
+            Logout
+          </a>
+        ) : (
+          <Link to="/login">Login</Link>
+        )}
+      </nav>
+    </header>
+  )
+}
 
 function App() {
-  const {
-    tasks,
-    loading,
-    error,
-    editingId,
-    addTask,
-    deleteTask,
-    toggleComplete,
-    startEdit,
-    saveEdit,
-    cancelEdit,
-  } = useTaskContext()  
+  console.log("App Mounted")
 
-  const [filter, setFilter] = useState<Filter>("all")
-
-
-  const filteredTasks = useMemo(() =>
-    tasks.filter(task => {
-      if (filter === "active") return !task.completed
-      if (filter === "completed") return task.completed
-      return true
-    }), [tasks, filter])
-
-  const completedCount = useMemo(() =>
-    tasks.filter(t => t.completed).length,
-  [tasks])
-
-  const remaining = tasks.length - completedCount
-
- 
-  if (loading) return <LoadingState />
-  if (error) return <ErrorState message={error} />
-
- 
   return (
-    <div className="app-wrapper">
-      <div className="app-container">
+    <BrowserRouter>
+      {/* Moved Header inside BrowserRouter so useNavigate hooks find Context */}
+      <MainNavigation />
 
-        <div className="app-header">
-          <h1 className="app-title">My Tasks</h1>
-          <p className="app-subtitle">
-            {remaining} remaining · {completedCount} done
-          </p>
-        </div>
+      <Routes>
+        <Route path="/" element={<Navigate to="/dashboard" />} />
 
-        <TaskForm onAdd={addTask} />
-
-        <div className="filter-bar">
-          {(["all", "active", "completed"] as Filter[]).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`filter-btn ${filter === f ? "filter-active" : ""}`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
-
-        {filteredTasks.length === 0 ? (
-          <div className="empty-state">
-            <p>
-              {filter === "completed"
-                ? "No completed tasks yet."
-                : "Nothing to do — add a task above!"}
-            </p>
-          </div>
-        ) : (
-          <ul className="task-list">
-            {filteredTasks.map(task => (
-              <TaskItem
-                key={task.id}
-                task={task}
-                isEditing={editingId === task.id}
-                onDelete={deleteTask}
-                onToggle={toggleComplete}
-                onStartEdit={startEdit}
-                onSaveEdit={saveEdit}
-                onCancelEdit={cancelEdit}
-              />
-            ))}
-          </ul>
-        )}
-
-        {tasks.length > 0 && completedCount > 0 && (
-          <div className="progress-bar-wrap">
-            <div
-              className="progress-bar"
-              style={{ width: `${Math.round((completedCount / tasks.length) * 100)}%` }}
-            />
-          </div>
-        )}
-
-      </div>
-    </div>
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
+        <Route path="/about" element={<ProtectedRoute><About /></ProtectedRoute>} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
