@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import axios from "axios"
 import api from "../api/axios"
 import type { Task, FetchState, Priority } from "../types/task"
+import { useQuery } from "@tanstack/react-query"
 
 const TASKS_URL = "/tasks"
 
