@@ -1,15 +1,15 @@
 import { Navigate } from "react-router-dom"
+import { useAuth } from "../hooks/useAuth"
 
 interface Props {
-  children: React.ReactElement 
+  children: React.ReactElement
 }
 
 export default function ProtectedRoute({ children }: Props) {
 
-  const token = localStorage.getItem("accessToken")
+  const { user } = useAuth()
 
-  if (!token) {
-    // If no token exists, cleanly redirect straight back to login
+  if (!user) {
     return <Navigate to="/login" replace />
   }
 

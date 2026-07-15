@@ -8,6 +8,7 @@ import {
 import { TaskProvider } from "./context/TaskContext"
 import App from "./App"
 import "./index.css"
+import { AuthProvider } from "./context/AuthProvider"
 
 // Create one QueryClient for the entire application
 const queryClient = new QueryClient()
@@ -15,9 +16,11 @@ const queryClient = new QueryClient()
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <TaskProvider>
-        <App />
-      </TaskProvider>
+      <AuthProvider>
+        <TaskProvider>
+          <App />
+        </TaskProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </StrictMode>
 )

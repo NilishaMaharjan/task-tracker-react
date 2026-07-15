@@ -1,161 +1,158 @@
-import { useState, useEffect } from "react"
-import axios from "axios"
-import api from "../api/axios"
-import type { Task, FetchState, Priority } from "../types/task"
-import { useQuery } from "@tanstack/react-query"
-
-const TASKS_URL = "/tasks"
-
-function getErrorMessage(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err)) {
-    return err.response?.data?.message ?? err.message ?? fallback
-  }
-  return err instanceof Error ? err.message : fallback
-}
+import { useState } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import type { Task, Priority } from "../types/task"
+import {
+  fetchTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+} from "../api/tasks"
+import { useAuth } from "./useAuth"
 
 export function useTasks() {
-  const [tasks, setTasks] = useState<Task[]>([])
+  const queryClient = useQueryClient()
 
-  const [fetchState, setFetchState] = useState<FetchState>({
-    loading: true,
-    error: null
+  const [editingId, setEditingId] =
+    useState<string | null>(null)
+
+
+  // GET tasks 
+  const { user } = useAuth()
+
+  const userId = user?.id
+
+  console.log("useTasks rendered")
+  console.log("Current user:", user)
+  console.log("Current userId:", userId)
+
+  const {
+    data: tasks = [],
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: ["tasks", userId],
+    queryFn: fetchTasks,
+    enabled: !!userId,
   })
-  // CHANGED: editingId tracks a MongoDB string ID now
-  const [editingId, setEditingId] = useState<string | null>(null)
 
 
-  useEffect(() => {
-    async function loadTasks() {
-      try {
-        setFetchState({ loading: true, error: null })
+  // CREATE task
+  const createMutation = useMutation({
+    mutationFn: ({
+      title,
+      priority,
+    }: {
+      title: string
+      priority: Priority
+    }) => createTask(title, priority),
 
-        const { data } = await api.get<Task[]>(TASKS_URL)
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks", userId],
+      })
+    },
+  })
 
-        setTasks(data)
-        setFetchState({ loading: false, error: null })
+  // UPDATE task
+  const updateMutation = useMutation({
+    mutationFn: ({
+      id,
+      updates,
+    }: {
+      id: string
+      updates: Partial<Task>
+    }) => updateTask(id, updates),
 
-      } catch (err) {
-        const message = getErrorMessage(err, "Unknown error")
-        setFetchState({ loading: false, error: message })
-      }
-    }
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks", userId],
+      })
+    },
+  })
 
-    loadTasks()
-  }, [])
+  // DELETE task
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      deleteTask(id),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["tasks", userId],
+      })
+    },
+  })
 
 
-  // CREATE: ADD TASK
+  // PUBLIC FUNCTION
   const addTask = async (
     title: string,
     priority: Priority
   ) => {
     if (!title.trim()) return
 
-    try {
-      const { data: created } = await api.post<Task>(TASKS_URL, {
-        title: title.trim(),
-        priority,
-      })
-
-      setTasks(prev => [...prev, created])
-
-    } catch (err) {
-      const message = getErrorMessage(err, "Failed to add task")
-      setFetchState(prev => ({ ...prev, error: message }))
-    }
-  }
-
-
-  // DELETE: REMOVE TASK (CHANGED: id type is now string, filter tracks _id)
-  const deleteTask = async (id: string) => {
-    try {
-      await api.delete(`${TASKS_URL}/${id}`)
-
-      // CHANGED: Match against task._id
-      setTasks(prev => prev.filter(task => task._id !== id))
-
-    } catch (err) {
-      const message = getErrorMessage(err, "Failed to delete task")
-      setFetchState(prev => ({ ...prev, error: message }))
-    }
-  }
-
-
-  // UPDATE: TOGGLE COMPLETION STATE (CHANGED: id type is string, maps via _id)
-  const updateTask = async (
-    id: string,
-    updates: Partial<Task>
-  ): Promise<Task | undefined> => {
-    const task = tasks.find(t => t._id === id)
-
-    if (!task) return
-
-    try {
-      const { data: updated } = await api.put<Task>(
-        `${TASKS_URL}/${id}`,
-        {
-          title: updates.title ?? task.title,
-          completed: updates.completed ?? task.completed,
-          priority: updates.priority ?? task.priority,
-        }
-      )
-
-      setTasks(prev =>
-        prev.map(t =>
-          t._id === id ? updated : t
-        )
-      )
-
-      return updated
-    } catch (err) {
-      const message = getErrorMessage(
-        err,
-        "Failed to update task"
-      )
-
-      setFetchState(prev => ({
-        ...prev,
-        error: message,
-      }))
-
-      return undefined
-    }
-  }
-
-  const toggleComplete = async (id: string) => {
-    const task = tasks.find(t => t._id === id)
-
-    if (!task) return
-
-    await updateTask(id, {
-      completed: !task.completed,
+    await createMutation.mutateAsync({
+      title: title.trim(),
+      priority,
     })
   }
 
-  // Update Edit States (CHANGED: id type is string)
-  const startEdit = (id: string) => setEditingId(id)
-  const cancelEdit = () => setEditingId(null)
+  const removeTask = async (id: string) => {
+    await deleteMutation.mutateAsync(id)
+  }
 
-  const saveEdit = async (id: string, newTitle: string) => {
+  const toggleComplete = async (
+    id: string
+  ) => {
+    const task = tasks.find(
+      t => t._id === id
+    )
+
+    if (!task) return
+
+    await updateMutation.mutateAsync({
+      id,
+      updates: {
+        completed: !task.completed,
+      },
+    })
+  }
+
+  const saveEdit = async (
+    id: string,
+    newTitle: string
+  ) => {
     if (!newTitle.trim()) return
 
-    await updateTask(id, {
-      title: newTitle.trim(),
+    await updateMutation.mutateAsync({
+      id,
+      updates: {
+        title: newTitle.trim(),
+      },
     })
 
     setEditingId(null)
   }
 
+  const startEdit = (id: string) =>
+    setEditingId(id)
+
+  const cancelEdit = () =>
+    setEditingId(null)
+
   return {
     tasks,
-    loading: fetchState.loading,
-    error: fetchState.error,
+    loading,
+
+    error:
+      error instanceof Error
+        ? error.message
+        : null,
     editingId,
     addTask,
-    deleteTask,
+    deleteTask: removeTask,
     toggleComplete,
-    startEdit,
     saveEdit,
+    startEdit,
     cancelEdit,
   }
 }

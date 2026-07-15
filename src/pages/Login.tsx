@@ -1,7 +1,12 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
+import { useAuth } from "../hooks/useAuth";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function Login() {
+  const { login } = useAuth()
+  const queryClient = useQueryClient()
+
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -11,16 +16,16 @@ export default function Login() {
   const handleLogin = async () => {
     try {
       // Clear out old error messages immediately when the button is clicked!
-      setError("") 
+      setError("")
 
       const response = await fetch(
-        "http://localhost:5001/api/auth/login", 
+        "http://localhost:5001/api/auth/login",
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          credentials: "include", 
+          credentials: "include",
           body: JSON.stringify({
             email,
             password,
@@ -35,16 +40,14 @@ export default function Login() {
         return
       }
 
-     localStorage.setItem(
-  "accessToken",
-  data.accessToken
-)
+      login(data.user, data.accessToken)
 
-localStorage.setItem(
-  "user",
-  JSON.stringify(data.user)
-)
+      // Clear any cached tasks from the previous user
+      await queryClient.resetQueries({
+        queryKey: ["tasks"],
+      })
 
+      // Now go to dashboard
       navigate("/dashboard")
     } catch {
       setError("Server connection failed")
